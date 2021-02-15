@@ -12,6 +12,20 @@ class Message:
         self.recip = recip
         self.msg = msg
 
+class User:
+    def __init__(self, socket, username):
+        self.socket = socket
+        self.username = username
+        self.is_logged_in = True
+        self.undelivered_text_messages = []
+        self.message_queue = []
+
+    def login(self):
+        self.is_logged_in = True
+
+    def logout(self):
+        self.is_logged_in = False
+
 # parts of select code modified from https://realpython.com/python-sockets/#multi-connection-client-and-server
 class Server:
     def __init__(self, ip, port, buffer_size):
@@ -103,10 +117,11 @@ class Server:
     # Zack
     def main_loop(self):
         # call select, process any client messages that need to be processed
-
-        events = self.select.select(timeout=None)
-        for key, mask in events:
-            if key.data is None: # this is a accept call
-                self.accept_connection(key.fileobj) # fileobj is the serversocket
-            else: # this is a recv call
-                self.read_or_write(key, mask)
+        
+        while True:
+            events = self.select.select(timeout=None)
+            for key, mask in events:
+                if key.data is None: # this is a accept call
+                    self.accept_connection(key.fileobj) # fileobj is the serversocket
+                else: # this is ready for send or recv
+                    self.read_or_write(key, mask)

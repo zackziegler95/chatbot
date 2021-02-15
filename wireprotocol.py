@@ -8,13 +8,15 @@
 ## 1 - list accounts
 ### data: (optional) ascii text wildcard
 ## 2 - send message
-### data: ascii recipient username @@@ ascii message
+### data: ascii sender username DELIM ascii recipient username DELIM ascii message
 ## 3 - deliver undelivered messages
 ### data: none
 ## 4 - delete account
 ### data: none
 ## 5 - login
 ### data: ascii username
+## 6 - server response
+### data: (optional) error message
 # 40 bytes, data length
 # data length bytes, data
 
@@ -31,6 +33,7 @@ class CMD:
     DELIVER = 3
     DELETE = 4
     LOGIN = 5
+    RESPONSE = 6
 
 class WireProtocol:
     # The idea here is for the operations of the wire protocol to be independent
@@ -122,6 +125,13 @@ class WireProtocol:
         # login
         if self.command == CMD.LOGIN:
             return self.data_buffer.decode('ascii')
+
+        # response
+        if self.command == CMD.RESPONSE:
+            if self.data_buffer:
+                return self.data_buffer.decode('ascii')
+            else:
+                return None
 
         raise ValueError('command id %d unknown' % self.command)
     
