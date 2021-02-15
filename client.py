@@ -1,21 +1,35 @@
+from wireprotocol import WireProtocol
 
 # Zack
-def listen_for_messages(self, q):
-    q.put(msg)
+def listen_for_messages(self, q, socket, buffer_size):
+    wp = WireProtocol()
+
+    while True:
+        data = socket.recv(buffer_size)
+        if not data:
+            q.put(None) # None indicates server cut connection
+            break
+        
+        # if parse_incoming_bytes is True, an entire message has been received
+        while wp.parse_incoming_bytes(data):
+            q.put([wp.command, wp.parse_data()])
+            data = wp.tmp_buffer # Save any leftover bytes
+            wp.reset_buffers()
 
 def listen_for_keystroke(self, pipe):
     # do something with pipe
-
-msg = {cmd: 'create_account', username=username}
-client.send_to_server(msg)
 
 class Client:
     def __init__(self):
         pass
     
     # Zack
-    def send_to_server(self, msg):
-        pass
+    def send_to_server(self, command, *args):
+        msg = WireProtocol.data_to_bytes(command, args)
+        i = 0
+        while i < len(msg):
+            sent += self.socket.send(msg[i:])
+            i += sent
 
     def create_account(self):
         pass

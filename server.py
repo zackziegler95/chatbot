@@ -1,3 +1,4 @@
+from wireprotocol import WireProtocol
 
 class Server:
     def __init__(self, ip, port):
