@@ -1,6 +1,6 @@
 import sys
 
-from wireprotocol import WireProtocol
+from wireprotocol import WireProtocol, CMD
 
 # Greg
 # Change control flow to new protocol
@@ -208,6 +208,11 @@ class Client:
                 if c in disallowed:
                     print("pls no use char: " + c)
                     return True
+
+            if CMD.DELIM in inputstring:
+                print('Illegal character sequence: %s' % CMD.DELIM)
+                return True
+
             return False
 
         # prompt for recipient

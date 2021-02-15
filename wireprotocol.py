@@ -17,6 +17,8 @@
 ### data: ascii username
 ## 6 - server response
 ### data: (optional) error message
+## 7 - list response
+### data: DELIM separated usernames
 # 40 bytes, data length
 # data length bytes, data
 
@@ -24,7 +26,6 @@ WP_VERSION = 0 # current version is 0
 VERSION_LEN = 1
 COMMAND_LEN = 1
 DATALENGTH_LEN = 40
-DELIM = b'|||'
 
 class CMD:
     CREATE = 0
@@ -34,6 +35,8 @@ class CMD:
     DELETE = 4
     LOGIN = 5
     RESPONSE = 6
+    LISTRESPONSE = 7
+    DELIM = b'|||'
 
 class WireProtocol:
     # The idea here is for the operations of the wire protocol to be independent
@@ -105,9 +108,9 @@ class WireProtocol:
 
         # send message
         if self.command == CMD.SEND:
-            if DELIM not in text:
+            if CMD.DELIM not in text:
                 raise ValueError('data delimeter not found in message body')
-            text = [arg.decode('ascii') for arg in self.data_buffer.split(DELIM)]
+            text = [arg.decode('ascii') for arg in self.data_buffer.split(CMD.DELIM)]
             return text
 
         # deliver undelivered messages
@@ -133,11 +136,16 @@ class WireProtocol:
             else:
                 return None
 
+        # list response
+        if self.command == CMD.LISTRESPONSE:
+            text = [arg.decode('ascii') for arg in self.data_buffer.split(CMD.DELIM)]
+            return text
+
         raise ValueError('command id %d unknown' % self.command)
     
     @staticmethod
     def data_to_bytes(command, *args):
-        # any args passed are eventually concatenated with the DELIM delimeter
+        # any args passed are eventually concatenated with the CMD.DELIM delimeter
         # args should be a list of (normal) strings
         message = b''
 
@@ -155,7 +163,7 @@ class WireProtocol:
         if args:
             num_args = len(args)
             args = [arg.encode('ascii') for arg in args]
-            data_len = sum(map(len, args))+len(DELIM)*(num_args-1)
+            data_len = sum(map(len, args))+len(CMD.DELIM)*(num_args-1)
         else:
             data_len = 0
 
@@ -165,22 +173,6 @@ class WireProtocol:
 
         # data
         if data_len > 0:
-            message += DELIM.join(args)
+            message += CMD.DELIM.join(args)
 
         return message
-        
-
-class BlockingClientSocket:
-    def __init__(self, socket):
-        self.socket = socket
-        self.wire_protocol = WireProtocol()
-    
-    def send(self, msg):
-        # msg is arbitrary json
-        # loops until msg is fully sent
-        # self.wire_protocol.add_to_buffer(data)
-
-    def recv(self):
-        # msg is arbitrary json
-        # loops until msg is fully received
-
