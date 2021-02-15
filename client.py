@@ -1,3 +1,6 @@
+import socket
+import multiprocessing as mp
+
 import JFormat
 
 
@@ -15,13 +18,23 @@ def listen_for_keystroke(self, pipe):
 
 class Client:
     def __init__(self):
+        # import server address (HOST, PORT)
+        server_address = (127, 9000)
+        self.clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.clientsocket.connect(*server_address)
 
         self.username = None
-        self.socket = None
 
-        # TODO: initialize socket/connect to server
+        self.mastertosocketqueue = mp.Queue()
+        self.sockettomasterqueue = mp.Queue()
+        # starts separate process for the socket which sends messages from the
+        # first queue, and puts received messages on the second
+        self.socketprocess = mp.Process(target=start_socket_process, args=(,))
+        self.socketprocess.start()
 
-        if self.socket = None:
+        self.keyboardprocess = mp.Process()
+
+        if self.clientsocket = None:
             raise Exception("Client socket should be set before logging in.")
         # beginning loop to either login, create account, or quit
         # sets self.username if login or create account succeeds.
@@ -35,14 +48,24 @@ class Client:
             # enter main loop to send and receive messages, delete acct, log out
             self.main_loop()
 
+    def start_socket_process(self):
+        # loop to send and receive
+        while True:
+            # check for message to send
+            if not self.mastertosocketqueue.empty():
+                formattedmessage = self.mastertosocketqueue.get()
+                self.send_to_server(formatted_message)
+                # TODO: make sure the above command works
+            if self.listen_for_messages():
+
     # Zack
     def send_to_server(self, msg):
         pass
 
-    def _bad_char_checker(inputstring):
-        disallowed = ['"', '"""', '{', '}']
+    def _username_bad_char_checker(inputstring):
+        allowed = 'abcdefghijklmnopqrstuvwxyz0123456789'
         for c in inputstring:
-            if c in disallowed:
+            if c.lower() not in allowed:
                 print("pls no use char: " + c)
                 return True
         return False
@@ -113,9 +136,9 @@ class Client:
                 self.send_to_server(JFormat.make_login_request(username=username))
                 # set a timeout?
                 # TODO: wait for "login_respnose" message from Server, use it to populate
-                name_is_good = True
-                name_is_good = False
-                if name_is_good:
+                nameisgood = True
+                nameisgood = False
+                if nameisgood:
                     self.username = username
                     return True # successfully set self.username
                 else:
@@ -145,6 +168,15 @@ class Client:
         self.send_to_server(formatted_check)
 
     def enter_compose_mode(self):
+        # helper function to disallow chars within message
+        def _message_bad_char_checker(inputstring):
+            disallowed = ['"', '"""', '{', '}']
+            for c in inputstring:
+                if c in disallowed:
+                    print("pls no use char: " + c)
+                    return True
+            return False
+
         # prompt for recipient
         recipient = input("Recipient: ")
         # prompt for message
@@ -152,7 +184,7 @@ class Client:
         bad_chars = True
         while bad_chars:
             message = input("Message: ")
-            bad_chars = _bad_char_checker(message)
+            bad_chars = _message_bad_char_checker(message)
 
         #prompt send y/n
         abort = False
@@ -172,9 +204,9 @@ class Client:
             self.send_to_server(formatted_message)
 
     def enter_delete_mode(self):
-        # this deletes without addressing any stored messages
+        # this deletes the account without addressing any stored messages
 
-        #prompt for confirmation
+        #prompt user for confirmation
         really_delete = False
         while True:
             send = input("Confirm account deletion? (y/n): ")
