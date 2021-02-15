@@ -223,6 +223,7 @@ class Client:
         while bad_chars:
             message = input("Message: ")
             bad_chars = _message_bad_char_checker(message)
+            ALSO NEED TO CHECK HERE FOR IF THE MESSAGE IS TOO LONG
 
         #prompt send y/n
         abort = False
