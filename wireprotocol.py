@@ -13,6 +13,8 @@
 ### data: none
 ## 4 - delete account
 ### data: none
+## 5 - login
+### data: ascii username
 # 40 bytes, data length
 # data length bytes, data
 
@@ -21,6 +23,14 @@ VERSION_LEN = 1
 COMMAND_LEN = 1
 DATALENGTH_LEN = 40
 DELIM = b'|||'
+
+class CMD:
+    CREATE = 0
+    LIST = 1
+    SEND = 2
+    DELIVER = 3
+    DELETE = 4
+    LOGIN = 5
 
 class WireProtocol:
     # The idea here is for the operations of the wire protocol to be independent
@@ -34,8 +44,8 @@ class WireProtocol:
         self.version = -1 # -1 will indicate we don't have it yet
         self.command = -1
         self.data_len = -1 
-        self.tmp_buffer = b'' # empty byte string will indicate we don't have it yet
-        self.data_buffer = b''
+        self.data_buffer = b'' # empty byte string will indicate we don't have it yet
+        self.tmp_buffer = b''
 
     def parse_incoming_bytes(self, msg_bytes):
         # msg_bytes is byte string
@@ -80,34 +90,38 @@ class WireProtocol:
             raise ValueError('version mismatch, current version is %d but received version is %d' % (WP_VERSION, self.version))
 
         # create account
-        if self.command == 0:
+        if self.command == CMD.CREATE:
             return self.data_buffer.decode('ascii')
 
         # list account
-        if self.command == 1:
+        if self.command == CMD.LIST:
             if self.data_buffer:
                 return self.data_buffer.decode('ascii')
             else:
                 return None
 
         # send message
-        if self.command == 2:
+        if self.command == CMD.SEND:
             if DELIM not in text:
                 raise ValueError('data delimeter not found in message body')
             text = [arg.decode('ascii') for arg in self.data_buffer.split(DELIM)]
             return text
 
         # deliver undelivered messages
-        if self.command == 3:
+        if self.command == CMD.DELIVER:
             if self.data_buffer:
                 raise ValueError('no data expected for deliver undelivered messages command')
             return None
 
         # delete account
-        if self.command == 4:
+        if self.command == CMD.DELETE:
             if self.data_buffer:
                 raise ValueError('no data expected for delete account command')
             return None
+         
+        # login
+        if self.command == CMD.LOGIN:
+            return self.data_buffer.decode('ascii')
 
         raise ValueError('command id %d unknown' % self.command)
     
