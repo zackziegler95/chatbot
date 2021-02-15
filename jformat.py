@@ -32,10 +32,8 @@ class JFormat:
 
     def _fromjstring(self, jstring):
         try:
-            jidx = jstring.indexof('jtype:')
-            jtype = None
-            fieldsdictstring = ''
-            #TODO: implement this, write a tester
+            pass
+            #TODO: implement and test
 
         except Exception as e:
             print('Error unpacking jstring: ' + jstring)
