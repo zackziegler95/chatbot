@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-v3.6+-blue.svg)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-##Overview
+## Overview
 This is a chat client and server written for the wire protocols assignment in the spring 2021 instantiation of CS262: Introduction to Distributed Systems.
 It is written in Python, with an application-specific wire protocol for passing messages and commands between client and server.
 It is designed to track users and messages only so long as the chat server is running, though multiple clients may connect and disconnect using the same or different accounts.
@@ -13,15 +13,9 @@ It is designed to track users and messages only so long as the chat server is ru
 We'll need Python 3.7.
 
 An easy way to manage dependencies is to maintain a virtual environment for all machines which will be running the client or the server.
-For this purpose we recommend [installing conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/).
+Although it's perhaps overkill, for this purpose we recommend [installing conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/).
 
-Once `conda` is installed, it can be used to create an environment <!--from `environment.yml` by calling
-
-```python
-conda env create -f environment.yml
-```
- -->
- by running
+Once `conda` is installed, it can be used to create an environment by running
  ```python
  conda create --name chatenv python=3.7
  ```
@@ -45,6 +39,7 @@ python3 client.py
 to start each client (on each client machine).
 
 Once you're done, client processes will terminate after receiving `logout` or `delete account` commands. The server process will run until it is terminated manually.
+
 
 ## Basic Usage
 TODO
