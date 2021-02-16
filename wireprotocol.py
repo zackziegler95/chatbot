@@ -1,5 +1,8 @@
 # All Zack
 
+# TODO: WP support for CMD.ACCTS and CMD.RESPONSE message types
+# TODO: add sender field to messages (see Client.display_message())
+
 # version 0
 # 1 byte, version
 # 1 byte, command
@@ -8,17 +11,18 @@
 ## 1 - list accounts
 ### data: (optional) ascii text wildcard
 ## 2 - send message
-### data: ascii sender username DELIM ascii recipient username DELIM ascii message
+### data: ascii recipient username DELIM ascii message
 ## 3 - deliver undelivered messages
 ### data: none
 ## 4 - delete account
 ### data: none
 ## 5 - login
 ### data: ascii username
-## 6 - server response
-### data: (optional) error message
-## 7 - list response
-### data: DELIM separated usernames
+## 6 - server response to login/create acct
+### data: ascii True/False (for success/failure of login or new acct action)
+## 7 - list of usernames
+### data: ascii usernames, separated by DELIM
+
 # 40 bytes, data length
 # data length bytes, data
 
@@ -26,6 +30,7 @@ WP_VERSION = 0 # current version is 0
 VERSION_LEN = 1
 COMMAND_LEN = 1
 DATALENGTH_LEN = 40
+DELIM = b'|||'
 
 class CMD:
     CREATE = 0
@@ -35,8 +40,7 @@ class CMD:
     DELETE = 4
     LOGIN = 5
     RESPONSE = 6
-    LISTRESPONSE = 7
-    DELIM = b'|||'
+    ACCTS = 7
 
 class WireProtocol:
     # The idea here is for the operations of the wire protocol to be independent
@@ -49,7 +53,7 @@ class WireProtocol:
     def reset_buffers(self):
         self.version = -1 # -1 will indicate we don't have it yet
         self.command = -1
-        self.data_len = -1 
+        self.data_len = -1
         self.data_buffer = b'' # empty byte string will indicate we don't have it yet
         self.tmp_buffer = b''
 
@@ -108,9 +112,9 @@ class WireProtocol:
 
         # send message
         if self.command == CMD.SEND:
-            if CMD.DELIM not in text:
+            if DELIM not in text:
                 raise ValueError('data delimeter not found in message body')
-            text = [arg.decode('ascii') for arg in self.data_buffer.split(CMD.DELIM)]
+            text = [arg.decode('ascii') for arg in self.data_buffer.split(DELIM)]
             return text
 
         # deliver undelivered messages
@@ -124,28 +128,16 @@ class WireProtocol:
             if self.data_buffer:
                 raise ValueError('no data expected for delete account command')
             return None
-         
+
         # login
         if self.command == CMD.LOGIN:
             return self.data_buffer.decode('ascii')
 
-        # response
-        if self.command == CMD.RESPONSE:
-            if self.data_buffer:
-                return self.data_buffer.decode('ascii')
-            else:
-                return None
-
-        # list response
-        if self.command == CMD.LISTRESPONSE:
-            text = [arg.decode('ascii') for arg in self.data_buffer.split(CMD.DELIM)]
-            return text
-
         raise ValueError('command id %d unknown' % self.command)
-    
+
     @staticmethod
     def data_to_bytes(command, *args):
-        # any args passed are eventually concatenated with the CMD.DELIM delimeter
+        # any args passed are eventually concatenated with the DELIM delimeter
         # args should be a list of (normal) strings
         message = b''
 
@@ -163,7 +155,7 @@ class WireProtocol:
         if args:
             num_args = len(args)
             args = [arg.encode('ascii') for arg in args]
-            data_len = sum(map(len, args))+len(CMD.DELIM)*(num_args-1)
+            data_len = sum(map(len, args))+len(DELIM)*(num_args-1)
         else:
             data_len = 0
 
@@ -173,6 +165,21 @@ class WireProtocol:
 
         # data
         if data_len > 0:
-            message += CMD.DELIM.join(args)
+            message += DELIM.join(args)
 
         return message
+
+
+class BlockingClientSocket:
+    def __init__(self, socket):
+        self.socket = socket
+        self.wire_protocol = WireProtocol()
+
+    def send(self, msg):
+        # msg is arbitrary json
+        # loops until msg is fully sent
+        # self.wire_protocol.add_to_buffer(data)
+
+    def recv(self):
+        # msg is arbitrary json
+        # loops until msg is fully received
