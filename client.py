@@ -2,8 +2,10 @@ import sys
 import threading
 import multiprocessing as mp
 
-from wireprotocol import WireProtocol, CMD, DELIM
-
+import config
+from wireprotocol import WireProtocol, CMD
+import wireprotocol
+import socket
 
 def listen_for_messages(q, socket, buffer_size):
     # sets up
@@ -23,11 +25,11 @@ def listen_for_messages(q, socket, buffer_size):
 
 
 class Client:
-    def __init__(self, buffer_size=64):
+    def __init__(self, ip=config.HOST, port=config.PORT, buffer_size=config.CLIENTBUFFERSIZE):
         # import server address (HOST, PORT)
-        server_address = (127, 9000)
+        server_address = (ip, port)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect(*server_address)
+        self.socket.connect(server_address)
 
         self.username = None
 
@@ -174,11 +176,11 @@ class Client:
 
     def list_accounts(self):
         # TODO: elicit search string, check it for bad chars
-        print("Optional wildcard search (supports '*' and '?')")
+        print("Optional username search (supports Unix shell-style wildcards)")
 
         # loop to elicit valid wildcard string
         search_string = input("Search string: ")
-        while _username_bad_char_checker(search_string, '*?'):
+        while _username_bad_char_checker(search_string, '*?[]!'):
             search_string = input("Search string: ")
         if search_string == '':
             search_string = '*'
@@ -220,8 +222,8 @@ class Client:
                     print("pls no use char: " + c)
                     return True
 
-            if DELIM in inputstring:
-                print(f'Illegal character sequence: "{DELIM}"')
+            if wireprotocol.DELIM in inputstring:
+                print(f'Illegal character sequence: "{wireprotocol.DELIM}"')
                 return True
 
             return False
