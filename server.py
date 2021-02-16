@@ -14,7 +14,7 @@ class Message:
         self.msg = msg
 
 # We need a separate connection class to store information about connections separate from
-# a notion of users. Before a user is logged in a connection is still established and 
+# a notion of users. Before a user is , logged in a connection is still established and 
 # messages need to be able to be sent back and forth
 class Connection:
     def __init__(self, uuid, socket):
@@ -30,9 +30,11 @@ class User:
         self.undelivered_messages = []
 
     def login(self, conn):
-        self.conneciton = conn
+        print('logging in %s' % self.username)
+        self.connection = conn
 
     def logout(self):
+        print('logging out %s' % self.username)
         self.connection = None
 
 # parts of select code modified from https://realpython.com/python-sockets/#multi-connection-client-and-server
@@ -118,14 +120,14 @@ class Server:
         elif from_name != from_user.username:
             error = 'specified from name is not the sender. Got username %s, current username is %s, for message: from: %s | to: %s | body: %s' % (from_name, from_user.username, from_name, to_name, msg)
 
-        elif to_name not in [u.username for u in users]:
+        elif to_name not in [u.username for u in self.users]:
             error = 'specific recipient %s does not exist, for message: from: %s | to: %s | body: %s' % (to_name, from_name, to_name, msg)
 
         if error:
             conn.send_buffer += WireProtocol.data_to_bytes(CMD.RESPONSE, error)
             return
 
-        to_user = [u for u in users if u.username == to_name][0]
+        to_user = [u for u in self.users if u.username == to_name][0]
 
         # Send to recipient immediately if they are online
         if to_user.connection is not None:
@@ -138,6 +140,13 @@ class Server:
         from_user.connection.send_buffer += WireProtocol.data_to_bytes(CMD.SEND, *data)
 
     def _process_deliver(self, conn, data):
+        print('conn uuid: %s' % str(conn.uuid))
+        for u in self.users:
+            print(u.username)
+            print(u.connection)
+            if u.connection:
+                print(u.connection.uuid)
+
         from_user = self.conn2user(conn)
         error = ''
         if from_user is None:
@@ -146,7 +155,7 @@ class Server:
             return
 
         for msg in from_user.undelivered_messages:
-            from_user.send_buffer += WireProtocol.data_to_bytes(CMD.SEND, *msg)
+            conn.send_buffer += WireProtocol.data_to_bytes(CMD.SEND, *msg)
         from_user.undelivered_messages = []
 
     def _process_delete(self, conn, data):
@@ -171,6 +180,7 @@ class Server:
                 error = 'user is already logged in'
             else:
                 user.login(conn)
+                print('user logged in, username: %s, conn %s' % (user.username, user.connection)) 
 
         # send response with potential error
         conn.send_buffer += WireProtocol.data_to_bytes(CMD.RESPONSE, error)

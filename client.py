@@ -4,7 +4,7 @@ import threading
 import multiprocessing as mp
 
 from wireprotocol import WireProtocol, CMD
-from getch import getch
+from pynput import keyboard
 
 
 def listen_for_messages(q, socket, buffer_size):
@@ -18,7 +18,7 @@ def listen_for_messages(q, socket, buffer_size):
 
         data = socket.recv(buffer_size)
         if not data:
-            q.put(None) # None indicates server cut connection (uncontrolled failure mode)
+            q.put([None, None]) # None indicates server cut connection (uncontrolled failure mode)
             break
 
         # if parse_incoming_bytes is True, an entire message has been received
@@ -73,7 +73,16 @@ class Client:
         # starts a thread which listens for a keyboard interaction
         def _listen_for_keystroke(q):
             # process listens for (and enqueues) a single char, then exits
-            ch = getch()
+            '''with keyboard.Events() as events:
+                while True:
+                    event = events.get(1e6) # block for a long time
+                    if type(event).__name__ == 'Release':
+                        if event.key in [keyboard.KeyCode.from_char('h'), keyboard.KeyCode.from_char('c'), keyboard.KeyCode.from_char('l'), keyboard.KeyCode.from_char('g'), keyboard.KeyCode.from_char('d'), keyboard.KeyCode.from_char('q')]:
+                            q.put(event.key.char)
+                            print()
+                            break
+            '''
+            ch = sys.stdin.read(1)
             q.put(ch)
 
         self.keyboardprocess = threading.Thread(target=_listen_for_keystroke, args=[self.kblistenq])
@@ -86,6 +95,13 @@ class Client:
         while i < len(msg):
             sent = self.socket.send(msg[i:])
             i += sent
+
+    def get_socket_msg(self):
+        cmd, data = self.socketq.get()
+        if cmd is None:
+            print('Server closed connection')
+            sys.exit()
+        return cmd, data
 
     def starting_loop(self):
         # blocks while logging in--which is fine, shouldn't be receiving messages anyway
@@ -124,7 +140,8 @@ class Client:
             # client sends chosen username to Server
             self.send_to_server(CMD.LOGIN, username)
             # blocks waiting for login respnose message from server
-            cmd, data = self.socketq.get()
+            cmd, data = self.get_socket_msg()
+
             if not cmd == CMD.RESPONSE:
                 raise Exception("Unexpected communication type from server.")
 
@@ -149,7 +166,7 @@ class Client:
             # client sends chosen username to Server
             self.send_to_server(CMD.CREATE, username)
             # blocks waiting for create acct respnose message from server
-            cmd, data = self.socketq.get()
+            cmd, data = self.get_socket_msg()
             if not cmd == CMD.RESPONSE:
                 raise Exception("Unexpected communication type from server.")
 
@@ -167,11 +184,8 @@ class Client:
         sys.exit()
 
     def list_accounts(self):
-        # TODO: elicit search string, check it for bad chars
-        print("Optional wildcard search (supports '*' and '?')")
-
         # loop to elicit valid wildcard string
-        search_string = input("Search string: ")
+        search_string = input("Search pattern (optional): ")
         while _username_bad_char_checker(search_string, '*?'):
             search_string = input("Search string: ")
         if search_string == '':
@@ -202,7 +216,7 @@ class Client:
         elif inputchar == 'q':
             self.logout()
 
-        else:
+        elif inputchar.strip():
             print("(invalid command)")
 
     def enter_compose_mode(self):
@@ -257,17 +271,27 @@ class Client:
 
         if really_delete:
             self.send_to_server(CMD.DELETE)
+            self.logout()
 
     def display_message(self, parsed_message):
         # parsed message of the form [wp.command, wp.parse_data()]
+        print(parsed_message)
         cmd, parsed_data = parsed_message
         if cmd == CMD.SEND:
-            sender, message_body = parsed_data
-            print(f"New message from {sender}: \n{message_body}\n")
+            sender, recipient, message_body = parsed_data
+            if recipient == self.username:
+                print(f"New message from {sender}: \n{message_body}\n")
+            elif sender == self.username:
+                print(f"Sent to {recipient}: \n{message_body}\n")
+            else:
+                raise ValueError('neither sender nor recipient is the user. Message data is %s' % parsed_data)
         elif cmd == CMD.LISTRESPONSE:
             acct_list = parsed_data
             print(acct_list)
             print("Other accounts:\n" + "\n".join(acct_list))
+        elif cmd == CMD.RESPONSE:
+            error = parsed_data
+            print('Server error: %s' % error)
         else:
             raise Exception("Cannot display a non-message command")
 
@@ -277,7 +301,7 @@ class Client:
         while True:
             # receive any incoming messages
             if not self.socketq.empty():
-                parsed_message = self.socketq.get()  # of the form [wp.command, wp.parse_data()]
+                parsed_message = self.get_socket_msg()  # of the form [wp.command, wp.parse_data()]
                 self.display_message(parsed_message)
 
             # if keyboard interrupts, elicit and handle user commands
