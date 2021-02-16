@@ -38,9 +38,9 @@ def _username_bad_char_checker(inputstring, alsoallowed=''):
 
 
 class Client:
-    def __init__(self, ip=config.HOST, port=config.PORT, buffer_size=config.CLIENTBUFFERSIZE):
+    def __init__(self, host=config.HOST, port=config.PORT, buffer_size=config.CLIENTBUFFERSIZE):
         # import server address (HOST, PORT)
-        server_address = (ip, port)
+        server_address = (host, port)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect(server_address)
 
@@ -61,7 +61,7 @@ class Client:
             sys.exit()
         if self.username is None:
             raise Exception("Username should be set but is not.")
-        
+
         # start waiting for keyboard input
         self.start_kb_listening()
 
@@ -311,4 +311,5 @@ class Client:
                 self.start_kb_listening() # start new thread to continue listening for commands
 
 if __name__ == '__main__':
-    client = Client('localhost', 9000, 64)
+    #client = Client('localhost', 9000, 64)
+    _ = Client()

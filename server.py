@@ -3,6 +3,7 @@ import socket
 import uuid as uuid_module
 import types
 import fnmatch
+import config
 
 from wireprotocol import WireProtocol, CMD
 both_events = selectors.EVENT_READ | selectors.EVENT_WRITE
@@ -14,7 +15,7 @@ class Message:
         self.msg = msg
 
 # We need a separate connection class to store information about connections separate from
-# a notion of users. Before a user is , logged in a connection is still established and 
+# a notion of users. Before a user is , logged in a connection is still established and
 # messages need to be able to be sent back and forth
 class Connection:
     def __init__(self, uuid, socket):
@@ -39,13 +40,13 @@ class User:
 
 # parts of select code modified from https://realpython.com/python-sockets/#multi-connection-client-and-server
 class Server:
-    def __init__(self, host, port, buffer_size):
+    def __init__(self, host=config.HOST, port=config.PORT, buffer_size=config.SERVERBUFFERSIZE):
         self.users = []
         self.connections = []
 
         self.select = selectors.DefaultSelector()
         self.buffer_size = buffer_size
-        
+
         print('Initiating server socket')
         self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -53,7 +54,7 @@ class Server:
         self.serversocket.listen()
         self.serversocket.setblocking(False) # nonblocking socket here, using select
         self.select.register(self.serversocket, selectors.EVENT_READ, data=None)
-        
+
         print('Entering main loop')
         self.main_loop()
 
@@ -78,13 +79,13 @@ class Server:
 
     def logout(self, uuid, clientsocket):
         del self.uuid2wp[uuid]
-        
+
         username = self.uuid2username.get(uuid)
         if username is not None:
             del self.username2uuid[username]
             del self.uuid2username[uuid]
             del self.username2sendbuffer[username]
-    
+
     def _process_create(self, conn, data):
         username = data
         error = ''
@@ -99,7 +100,7 @@ class Server:
 
         # send response with potential error
         conn.send_buffer += WireProtocol.data_to_bytes(CMD.RESPONSE, error)
-    
+
     def _process_list(self, conn, data):
         # check if we need to filter by anything
         names = [u.username for u in self.users]
@@ -132,7 +133,7 @@ class Server:
         # Send to recipient immediately if they are online
         if to_user.connection is not None:
             to_user.connection.send_buffer += WireProtocol.data_to_bytes(CMD.SEND, *data)
-        else:           
+        else:
             # If they're not online, add to undelivered message list
             to_user.undelivered_messages.append(data)
 
@@ -180,7 +181,7 @@ class Server:
                 error = 'user is already logged in'
             else:
                 user.login(conn)
-                print('user logged in, username: %s, conn %s' % (user.username, user.connection)) 
+                print('user logged in, username: %s, conn %s' % (user.username, user.connection))
 
         # send response with potential error
         conn.send_buffer += WireProtocol.data_to_bytes(CMD.RESPONSE, error)
@@ -237,7 +238,7 @@ class Server:
 
     def main_loop(self):
         # call select, process any client messages that need to be processed
-        
+
         while True:
             events = self.select.select(timeout=None)
             for key, mask in events:
@@ -247,5 +248,5 @@ class Server:
                     self.read_or_write(key, mask)
 
 if __name__ == '__main__':
-    server = Server('localhost', 9000, 64)
-
+    # server = Server('localhost', 9000, 64)
+    _ = Server()

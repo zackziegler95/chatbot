@@ -1,12 +1,14 @@
+#!/usr/bin/env python
+
+# CHATBOT PARAMETERS:
 
 # CLIENT PARAMETERS:
-# buffer size
-CLIENTBUFFERSIZE = 64
+CLIENTBUFFERSIZE = 64 # buffer size
 
 # SERVER PARAMETERS:
-SERVERBUFFERSIZE = 64
+SERVERBUFFERSIZE = 64 # buffer size
 HOST = "127.0.0.1"
 PORT = 9000
 
 # wireprotocol PARAMETERS:
-# DELIM = b'|||'
+# (probably best not to change DELIM)
