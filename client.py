@@ -265,13 +265,13 @@ class Client:
         if really_delete:
             self.send_to_server(CMD.DELETE)
 
-    def self.display_message(parsed_message):
+    def display_message(self, parsed_message):
         # parsed message of the form [wp.command, wp.parse_data()]
         cmd, parsed_data = parsed_message
         if cmd == CMD.SEND:
             sender, message_body = parsed_data
             print(f"New message from {sender}: \n{message_body}\n")
-        elif cmd == CMD.ACCTS:
+        elif cmd == CMD.LISTRESPONSE:
             acct_list = parsed_data
             print("Other accounts:\n" + "\n".join(acct_list) + "\n")
         else:
