@@ -1,11 +1,10 @@
 import sys
+import config
 import socket
 import threading
 import multiprocessing as mp
 
 from wireprotocol import WireProtocol, CMD
-from pynput import keyboard
-
 
 def listen_for_messages(q, socket, buffer_size):
     # sets up
@@ -39,10 +38,11 @@ def _username_bad_char_checker(inputstring, alsoallowed=''):
 
 
 class Client:
-    def __init__(self, host, port, buffer_size=64):
+    def __init__(self, ip=config.HOST, port=config.PORT, buffer_size=config.CLIENTBUFFERSIZE):
         # import server address (HOST, PORT)
+        server_address = (ip, port)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((host, port))
+        self.socket.connect(server_address)
 
         self.username = None
 
@@ -186,7 +186,7 @@ class Client:
     def list_accounts(self):
         # loop to elicit valid wildcard string
         search_string = input("Search pattern (optional): ")
-        while _username_bad_char_checker(search_string, '*?'):
+        while _username_bad_char_checker(search_string, '*?[]!'):
             search_string = input("Search string: ")
         if search_string == '':
             search_string = '*'
