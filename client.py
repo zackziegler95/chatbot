@@ -68,11 +68,11 @@ class Client:
             sent += self.socket.send(msg[i:])
             i += sent
 
-    def _username_bad_char_checker(inputstring):
-        allowed = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    def _username_bad_char_checker(inputstring, alsoallowed=''):
+        allowed = 'abcdefghijklmnopqrstuvwxyz0123456789' + alsoallowed
         for c in inputstring:
             if c.lower() not in allowed:
-                print("pls no use char: " + c)
+                print(f"Illegal username character: '{c}'")
                 return True
         return False
 
@@ -111,6 +111,8 @@ class Client:
             userinput = input(">>> ")
             if userinput == "enter username":
                 username = input("Username: ")
+                if _username_bad_char_checker(username):
+                    continue
                 # client sends chosen username to Server
                 self.send_to_server(CMD.LOGIN, username)
                 # blocks waiting for login respnose message from server
@@ -143,6 +145,8 @@ class Client:
             userinput = input(">>> ")
             if userinput == "enter username":
                 username = input("Username: ")
+                if _username_bad_char_checker(username):
+                    continue
                 # client sends chosen username to Server
                 self.send_to_server(CMD.CREATE, username)
                 # blocks waiting for create acct respnose message from server
@@ -170,7 +174,15 @@ class Client:
 
     def list_accounts(self):
         # TODO: elicit search string, check it for bad chars
-        search_string = "*"
+        print("Optional wildcard search (supports '*' and '?')")
+
+        # loop to elicit valid wildcard string
+        search_string = input("Search string: ")
+        while _username_bad_char_checker(search_string, '*?'):
+            search_string = input("Search string: ")
+        if search_string == '':
+            search_string = '*'
+        # client sends username search to Server
         self.send_to_server(CMD.LIST, [search_string])
         # listen_for_messages will handle receiving and printing of returned user list
 
