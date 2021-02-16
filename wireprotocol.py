@@ -43,7 +43,7 @@ class WireProtocol:
     # of the details of the socket
     # This class is responsible for validating data
 
-    def __init__(self, uuid):
+    def __init__(self):
         self.reset_buffers()
 
     def reset_buffers(self):
@@ -86,7 +86,7 @@ class WireProtocol:
         if not self.data_buffer and self.data_len > 0:
             if len(self.tmp_buffer) < self.data_len:
                 return False
-            self.data_buffer = int.from_bytes(self.tmp_buffer[:self.data_len], "big")
+            self.data_buffer = self.tmp_buffer[:self.data_len]
             self.tmp_buffer = self.tmp_buffer[self.data_len:]
 
         return True
@@ -108,7 +108,7 @@ class WireProtocol:
 
         # send message
         if self.command == CMD.SEND:
-            if CMD.DELIM not in text:
+            if CMD.DELIM not in self.data_buffer:
                 raise ValueError('data delimeter not found in message body')
             text = [arg.decode('ascii') for arg in self.data_buffer.split(CMD.DELIM)]
             return text
@@ -150,13 +150,13 @@ class WireProtocol:
         message = b''
 
         # version
-        if WP_VERSION >= 2**VERSION_LEN:
+        if WP_VERSION >= 2**(VERSION_LEN*8):
             raise ValueError('version %d is larger than max version %d' % (WP_VERSION, 2**VERSION_LEN-1))
         message += int.to_bytes(WP_VERSION, VERSION_LEN, 'big')
 
         # command
-        if command >= 2*COMMAND_LEN:
-            raise ValueError('command %d is larger than max version %d' % (command, 2**COMMAND_LEN-1))
+        if command >= 2**(COMMAND_LEN*8):
+            raise ValueError('command %d is larger than max command %d' % (command, 2**COMMAND_LEN-1))
         message += int.to_bytes(command, COMMAND_LEN, 'big')
 
         # data length
@@ -167,7 +167,7 @@ class WireProtocol:
         else:
             data_len = 0
 
-        if data_len >= 2*DATALENGTH_LEN:
+        if data_len >= 2**(DATALENGTH_LEN*8):
             raise ValueError('data length %d is larger than max data length %d' % (data_len, 2**DATALENGTH_LEN-1))
         message += int.to_bytes(data_len, DATALENGTH_LEN, 'big')
 

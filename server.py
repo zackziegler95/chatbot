@@ -1,7 +1,8 @@
 import selectors
 import socket
-import uuid
+import uuid as uuid_module
 import types
+import fnmatch
 
 from wireprotocol import WireProtocol, CMD
 both_events = selectors.EVENT_READ | selectors.EVENT_WRITE
@@ -36,45 +37,41 @@ class User:
 
 # parts of select code modified from https://realpython.com/python-sockets/#multi-connection-client-and-server
 class Server:
-    def __init__(self, ip, port, buffer_size):
+    def __init__(self, host, port, buffer_size):
         self.users = []
         self.connections = []
-        #self.uuid2username = {}
-        #self.uuid2wp = {}
-        #self.username2uuid = {}
-        #self.uuid2username = {}
-        #self.username2sendbuffer = {}
 
         self.select = selectors.DefaultSelector()
-
         self.buffer_size = buffer_size
-
+        
+        print('Initiating server socket')
         self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.serversocket.bind((host, port))
         self.serversocket.listen()
         self.serversocket.setblocking(False) # nonblocking socket here, using select
         self.select.register(self.serversocket, selectors.EVENT_READ, data=None)
         
+        print('Entering main loop')
         self.main_loop()
 
     def conn2user(self, conn):
-        res = [u for u in users if u.connection is not None and u.connection.uuid = conn.uuid]
+        res = [u for u in self.users if u.connection is not None and u.connection.uuid == conn.uuid]
         if res:
             return res[0]
         else:
             return None
 
-    # Zack
     def accept_connection(self, serversocket):
         clientsocket, addr = serversocket.accept()
         clientsocket.setblocking(False)
 
         # uuid is unique to the connection. The same user connecting multiple times gets
         # a different uuid every time
-        uuid = str(uuid.uuid1())
+        uuid = str(uuid_module.uuid1())
         data = types.SimpleNamespace(addr=addr, uuid=uuid)
-        conn = Connection(uuid)
-        connections.append(conn)
+        conn = Connection(uuid, clientsocket)
+        self.connections.append(conn)
         self.select.register(clientsocket, both_events, data=data)
 
     def logout(self, uuid, clientsocket):
@@ -91,18 +88,19 @@ class Server:
         error = ''
         if username in [u.username for u in self.users]:
             error = 'username already exists'
-        elif CMD.DELIM in username:
-            error = 'illegal character sequence %s in username' % CMD.DELIM
+        elif CMD.DELIM.decode('ascii') in username:
+            error = 'illegal character sequence %s in username' % CMD.DELIM.decode('ascii')
         else:
             user = User(username)
             user.login(conn)
+            self.users.append(user)
 
         # send response with potential error
         conn.send_buffer += WireProtocol.data_to_bytes(CMD.RESPONSE, error)
     
     def _process_list(self, conn, data):
         # check if we need to filter by anything
-        names = [u.username for u in users]
+        names = [u.username for u in self.users]
         if data is not None:
             names = [n for n in names if fnmatch.fnmatch(n, data)]
         conn.send_buffer += WireProtocol.data_to_bytes(CMD.LISTRESPONSE, *names)
@@ -112,7 +110,7 @@ class Server:
         to_name = data[1]
         msg = data[2]
 
-        from_user = conn2user(conn)
+        from_user = self.conn2user(conn)
         error = ''
         if from_user is None:
             error = 'attempting to send a message before logging in, for message: from: %s | to: %s | body: %s' % (from_name, to_name, msg)
@@ -140,7 +138,7 @@ class Server:
         from_user.connection.send_buffer += WireProtocol.data_to_bytes(CMD.SEND, *data)
 
     def _process_deliver(self, conn, data):
-        from_user = conn2user(conn)
+        from_user = self.conn2user(conn)
         error = ''
         if from_user is None:
             error = 'attempting to deliver undelivered messages before logging in'
@@ -153,7 +151,7 @@ class Server:
 
     def _process_delete(self, conn, data):
         # If the user is logged in, log them out
-        from_user = conn2user(conn)
+        from_user = self.conn2user(conn)
         if from_user is not None:
             from_user.logout()
 
@@ -167,7 +165,12 @@ class Server:
             error = 'username does not exist'
         else:
             user = [u for u in self.users if u.username == username][0]
-            user.login(conn)
+
+            # check if user is already logged in
+            if user.connection is not None:
+                error = 'user is already logged in'
+            else:
+                user.login(conn)
 
         # send response with potential error
         conn.send_buffer += WireProtocol.data_to_bytes(CMD.RESPONSE, error)
@@ -194,7 +197,7 @@ class Server:
         uuid = data.uuid
         conn = [c for c in self.connections if c.uuid == uuid][0]
         wp = conn.wp
-        from_user = conn2user(conn)
+        from_user = self.conn2user(conn)
 
         # check if we need to recv
         if mask & selectors.EVENT_READ:
@@ -204,13 +207,16 @@ class Server:
                 self.select.unregister(clientsocket)
                 clientsocket.close()
 
+                # remove the connection
+                del self.connections[self.connections.index(conn)]
+
                 # logout as well if needed
                 if from_user is not None:
                     from_user.logout()
                 return
 
             while wp.parse_incoming_bytes(recv_data):
-                self.receive(uuid, wp.command, wp.parse_data())
+                self.receive(conn, wp.command, wp.parse_data())
                 recv_data = wp.tmp_buffer
                 wp.reset_buffers()
 
@@ -229,3 +235,7 @@ class Server:
                     self.accept_connection(key.fileobj) # fileobj is the serversocket
                 else: # this is ready for send or recv
                     self.read_or_write(key, mask)
+
+if __name__ == '__main__':
+    server = Server('localhost', 9000, 64)
+

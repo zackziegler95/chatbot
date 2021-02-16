@@ -1,8 +1,10 @@
 import sys
+import socket
 import threading
 import multiprocessing as mp
 
-from wireprotocol import WireProtocol, CMD, DELIM
+from wireprotocol import WireProtocol, CMD
+from getch import getch
 
 
 def listen_for_messages(q, socket, buffer_size):
@@ -10,6 +12,10 @@ def listen_for_messages(q, socket, buffer_size):
     wp = WireProtocol()
 
     while True:
+        # indicates that the socket has been closed from the main process
+        if socket.fileno() == -1:
+            break
+
         data = socket.recv(buffer_size)
         if not data:
             q.put(None) # None indicates server cut connection (uncontrolled failure mode)
@@ -17,17 +23,26 @@ def listen_for_messages(q, socket, buffer_size):
 
         # if parse_incoming_bytes is True, an entire message has been received
         while wp.parse_incoming_bytes(data):
+            print('received full message, command: %d, args: %s' % (wp.command, str(wp.parse_data())))
             q.put([wp.command, wp.parse_data()])
             data = wp.tmp_buffer # Save any leftover bytes
             wp.reset_buffers()
 
 
+def _username_bad_char_checker(inputstring, alsoallowed=''):
+    allowed = 'abcdefghijklmnopqrstuvwxyz0123456789' + alsoallowed
+    for c in inputstring:
+        if c.lower() not in allowed:
+            print(f"Illegal username character: '{c}'")
+            return True
+    return False
+
+
 class Client:
-    def __init__(self, buffer_size=64):
+    def __init__(self, host, port, buffer_size=64):
         # import server address (HOST, PORT)
-        server_address = (127, 9000)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect(*server_address)
+        self.socket.connect((host, port))
 
         self.username = None
 
@@ -36,7 +51,8 @@ class Client:
 
         # starts process which listens on the socket and puts received messages on the queue
         self.socketq = mp.Queue()
-        self.socketprocess = mp.Process(target=_messages, args=[self.q, self.socket, buffer_size])
+        self.socketprocess = mp.Process(target=listen_for_messages, args=[self.socketq, self.socket, buffer_size])
+        self.socketprocess.daemon = True
         self.socketprocess.start()
 
         # starting loop to either login, create account, or quit, sets self.username
@@ -45,6 +61,9 @@ class Client:
             sys.exit()
         if self.username is None:
             raise Exception("Username should be set but is not.")
+        
+        # start waiting for keyboard input
+        self.start_kb_listening()
 
         # enter main loop to send and receive messages, delete acct, log out, etc.
         self.main_loop()
@@ -58,29 +77,21 @@ class Client:
             q.put(ch)
 
         self.keyboardprocess = threading.Thread(target=_listen_for_keystroke, args=[self.kblistenq])
-        self.keyboardprocess.daemon = True
+        #self.keyboardprocess.daemon = True
         self.keyboardprocess.start()
 
     def send_to_server(self, command, *args):
-        msg = WireProtocol.data_to_bytes(command, args)
+        msg = WireProtocol.data_to_bytes(command, *args)
         i = 0
         while i < len(msg):
-            sent += self.socket.send(msg[i:])
+            sent = self.socket.send(msg[i:])
             i += sent
-
-    def _username_bad_char_checker(inputstring, alsoallowed=''):
-        allowed = 'abcdefghijklmnopqrstuvwxyz0123456789' + alsoallowed
-        for c in inputstring:
-            if c.lower() not in allowed:
-                print(f"Illegal username character: '{c}'")
-                return True
-        return False
 
     def starting_loop(self):
         # blocks while logging in--which is fine, shouldn't be receiving messages anyway
         quitflag = False
 
-        print("Commands: login, create account, quit")
+        print("Commands: login, create_account, quit")
         # loop to receive user input for login/create account
         while True:  # keep looping until successful login or quit
             userinput = input(">>> ")
@@ -88,7 +99,7 @@ class Client:
                 successflag = self.enter_login_mode()
                 if successflag:
                     break
-            elif userinput == "create account":
+            elif userinput == "create_account":
                 successflag = self.enter_create_acct_mode()
                 if successflag:
                     break
@@ -106,33 +117,24 @@ class Client:
             sets self.username if succeeds
             returns successflag to indicate whether this action was performed
         """
-        print("Commands: enter username, return")
         while True: # loop to receive user input for name/abort
-            userinput = input(">>> ")
-            if userinput == "enter username":
-                username = input("Username: ")
-                if _username_bad_char_checker(username):
-                    continue
-                # client sends chosen username to Server
-                self.send_to_server(CMD.LOGIN, username)
-                # blocks waiting for login respnose message from server
-                server_response = self.socketq.get()
-                cmd, data = server_response
-                if not cmd == CMD.RESPONSE:
-                    raise Exception("Unexpected communication type from server.")
-                success = bool(data)
-                if success:
-                    self.username = username
-                    print(f'Logged in as: {self.username}')
-                    return True
-                else:
-                    print('Username not recognized.')
-                    continue
+            username = input("Username: ")
+            if _username_bad_char_checker(username):
+                continue
+            # client sends chosen username to Server
+            self.send_to_server(CMD.LOGIN, username)
+            # blocks waiting for login respnose message from server
+            cmd, data = self.socketq.get()
+            if not cmd == CMD.RESPONSE:
+                raise Exception("Unexpected communication type from server.")
 
-            elif userinput == "return":
-                return False # failed to set self.username
+            success = not data # no error message indicates success
+            if success:
+                self.username = username
+                print(f'Logged in as: {self.username}')
+                return True
             else:
-                print("(invalid command)")
+                print('Username not recognized.')
                 continue
 
     def enter_create_acct_mode(self):
@@ -140,37 +142,29 @@ class Client:
             sets self.username if succeeds
             returns successflag to indicate whether this action was performed
         """
-        print("Commands: enter username, return")
         while True: # loop to receive user input for name/abort
-            userinput = input(">>> ")
-            if userinput == "enter username":
-                username = input("Username: ")
-                if _username_bad_char_checker(username):
-                    continue
-                # client sends chosen username to Server
-                self.send_to_server(CMD.CREATE, username)
-                # blocks waiting for create acct respnose message from server
-                server_response = self.socketq.get()
-                cmd, data = server_response
-                if not cmd == CMD.RESPONSE:
-                    raise Exception("Unexpected communication type from server.")
-                success = bool(data)
-                if success:
-                    self.username = username
-                    print(f'Logged in as: {self.username}')
-                    return True
-                else:
-                    print('Username is taken.')
-                    continue
+            username = input("Username: ")
+            if _username_bad_char_checker(username):
+                continue
+            # client sends chosen username to Server
+            self.send_to_server(CMD.CREATE, username)
+            # blocks waiting for create acct respnose message from server
+            cmd, data = self.socketq.get()
+            if not cmd == CMD.RESPONSE:
+                raise Exception("Unexpected communication type from server.")
 
-            elif userinput == "return":
-                return False # failed to set self.username
+            success = not data # no error message indicates success
+            if success:
+                self.username = username
+                print(f'Logged in as: {self.username}')
+                return True
             else:
-                print("(invalid command)")
+                print('Username is taken.')
                 continue
 
     def logout(self):
         self.socket.close()  # server handles it from here
+        sys.exit()
 
     def list_accounts(self):
         # TODO: elicit search string, check it for bad chars
@@ -183,7 +177,7 @@ class Client:
         if search_string == '':
             search_string = '*'
         # client sends username search to Server
-        self.send_to_server(CMD.LIST, [search_string])
+        self.send_to_server(CMD.LIST, search_string)
         # listen_for_messages will handle receiving and printing of returned user list
 
     def check_for_messages(self):
@@ -220,8 +214,8 @@ class Client:
                     print("pls no use char: " + c)
                     return True
 
-            if DELIM in inputstring:
-                print(f'Illegal character sequence: "{DELIM}"')
+            if CMD.DELIM.decode('ascii') in inputstring:
+                print(f'Illegal character sequence: "{CMD.DELIM}"')
                 return True
 
             return False
@@ -234,7 +228,6 @@ class Client:
         while bad_chars:  # loop while message is illegal
             message = input("Message: ")
             bad_chars = _message_bad_char_checker(message)
-            # TODO: ALSO NEED TO CHECK HERE FOR IF THE MESSAGE IS TOO LONG
 
         #prompt send y/n
         bail = False
@@ -247,7 +240,7 @@ class Client:
                 bail = True
 
         if not bail:
-            self.send_to_server(CMD.SEND, [self.username, recipient, message])
+            self.send_to_server(CMD.SEND, self.username, recipient, message)
 
     def enter_delete_mode(self):
         # this deletes the account without preserving server-stored messages
@@ -273,7 +266,8 @@ class Client:
             print(f"New message from {sender}: \n{message_body}\n")
         elif cmd == CMD.LISTRESPONSE:
             acct_list = parsed_data
-            print("Other accounts:\n" + "\n".join(acct_list) + "\n")
+            print(acct_list)
+            print("Other accounts:\n" + "\n".join(acct_list))
         else:
             raise Exception("Cannot display a non-message command")
 
@@ -291,3 +285,6 @@ class Client:
                 inputchar = self.kblistenq.get()
                 self.enter_command_mode(inputchar)
                 self.start_kb_listening() # start new thread to continue listening for commands
+
+if __name__ == '__main__':
+    client = Client('localhost', 9000, 64)
