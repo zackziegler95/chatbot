@@ -48,12 +48,13 @@ class Server:
         self.buffer_size = buffer_size
 
         print('Initiating server socket')
-        self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.serversocket.bind((host, port))
-        self.serversocket.listen()
-        self.serversocket.setblocking(False) # nonblocking socket here, using select
-        self.select.register(self.serversocket, selectors.EVENT_READ, data=None)
+        if host is not None: # host can be None for testing
+            self.serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.serversocket.bind((host, port))
+            self.serversocket.listen()
+            self.serversocket.setblocking(False) # nonblocking socket here, using select
+            self.select.register(self.serversocket, selectors.EVENT_READ, data=None)
 
     def conn2user(self, conn):
         res = [u for u in self.users if u.connection is not None and u.connection.uuid == conn.uuid]
@@ -73,15 +74,6 @@ class Server:
         conn = Connection(uuid, clientsocket)
         self.connections.append(conn)
         self.select.register(clientsocket, both_events, data=data)
-
-    def logout(self, uuid, clientsocket):
-        del self.uuid2wp[uuid]
-
-        username = self.uuid2username.get(uuid)
-        if username is not None:
-            del self.username2uuid[username]
-            del self.uuid2username[uuid]
-            del self.username2sendbuffer[username]
 
     def _process_create(self, conn, data):
         username = data
