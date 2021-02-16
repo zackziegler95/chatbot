@@ -40,6 +40,44 @@ to start each client (on each client machine).
 
 Once you're done, client processes will terminate after receiving `logout` or `delete account` commands. The server process will run until it is terminated manually.
 
+## Wire Protocol
+
+The wire protocol is made up of two components: the actual protocol for the distribution of bits over the wire and the protocol for understanding the format of the data.
+
+### Bits on the wire
+
+Each message is a command, consisting of the following components:
+
+`VERSION_LEN` bytes (1)
+- version number, messages must match the current version
+`COMMAND_LEN` bytes (1)
+- indicates the command, defined in `CMD`
+`DATALENGTH_LEN` bytes (40)
+- length of the following data, in bytes, interpreted as an int
+`data_len` bytes (variable)
+- ascii string containing the data
+
+Integer components (version, command, data length) are interpreted in the big endian format
+
+### Commands
+
+The wire protocol supports the following commands:
+
+`CREATE` - Create an account. Data: username
+`LIST` - Lists existing accounts. Data: (optional) filter, can include wildcard *
+`SEND` - Send a message. Data: sender username, recipient username, message
+`DELIVER` - Deliver undelivered messages. Data: None
+`DELETE` - Delete the current account (and logout). Data: None
+`LOGIN` - Login to an existing account. Data: username
+`RESPONSE` - Response from server. Data: (optional) error message
+`LISTRESPONSE` - Response to `LIST`. Data: list of usernames
+
+### Data format
+
+Data is understood to be a list a ascii strings. Only ascii characters are allowed. Data is optional, some commands like DELIVER take no data and some commands like LIST take an optional argument. Other commands take multiple arguments. The number of strings can range from 0 to arbitrarily large. The entire encoded data must have a length which can be represented in 40 bytes, thus it is capped at 256^40, which should be sufficient.
+
+The list items are delimited by a string, currently "|||"
+
 
 ## Basic Usage
 TODO
