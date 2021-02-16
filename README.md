@@ -50,12 +50,16 @@ Each message is a command, consisting of the following components:
 
 `VERSION_LEN` bytes (1)
 - version number, messages must match the current version
+
 `COMMAND_LEN` bytes (1)
 - indicates the command, defined in `CMD`
+
 `DATALENGTH_LEN` bytes (40)
 - length of the following data, in bytes, interpreted as an int
+
 `data_len` bytes (variable)
 - ascii string containing the data
+
 
 Integer components (version, command, data length) are interpreted in the big endian format
 
@@ -64,13 +68,21 @@ Integer components (version, command, data length) are interpreted in the big en
 The wire protocol supports the following commands:
 
 `CREATE` - Create an account. Data: username
+
 `LIST` - Lists existing accounts. Data: (optional) filter, can include wildcard *
+
 `SEND` - Send a message. Data: sender username, recipient username, message
+
 `DELIVER` - Deliver undelivered messages. Data: None
+
 `DELETE` - Delete the current account (and logout). Data: None
+
 `LOGIN` - Login to an existing account. Data: username
+
 `RESPONSE` - Response from server. Data: (optional) error message
+
 `LISTRESPONSE` - Response to `LIST`. Data: list of usernames
+
 
 ### Data format
 
