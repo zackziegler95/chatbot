@@ -64,3 +64,14 @@ def test_malformed():
     wp.parse_incoming_bytes(msg_bytes)
     with pytest.raises(ValueError):
         data_out = wp.parse_data()
+
+def test_emptyedge():
+    wp = WireProtocol()
+    msg_bytes = b''
+    output = wp.parse_incoming_bytes(msg_bytes)
+    assert output == False
+    assert wp.version == -1
+    assert wp.command == -1
+    assert wp.data_len == -1
+    assert wp.data_buffer == b''
+    assert wp.tmp_buffer == b''

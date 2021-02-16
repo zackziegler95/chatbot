@@ -55,9 +55,6 @@ class Server:
         self.serversocket.setblocking(False) # nonblocking socket here, using select
         self.select.register(self.serversocket, selectors.EVENT_READ, data=None)
 
-        print('Entering main loop')
-        self.main_loop()
-
     def conn2user(self, conn):
         res = [u for u in self.users if u.connection is not None and u.connection.uuid == conn.uuid]
         if res:
@@ -237,9 +234,10 @@ class Server:
             conn.send_buffer = conn.send_buffer[sent:]
 
     def main_loop(self):
-        # call select, process any client messages that need to be processed
+        print('Entering main loop')
 
         while True:
+            # call select, process any client messages that need to be processed
             events = self.select.select(timeout=None)
             for key, mask in events:
                 if key.data is None: # this is a accept call
@@ -248,5 +246,5 @@ class Server:
                     self.read_or_write(key, mask)
 
 if __name__ == '__main__':
-    # server = Server('localhost', 9000, 64)
-    _ = Server()
+    server = Server()
+    server.main_loop()

@@ -54,16 +54,14 @@ class Client:
         self.socketprocess = mp.Process(target=listen_for_messages, args=[self.socketq, self.socket, buffer_size])
         self.socketprocess.daemon = True
         self.socketprocess.start()
-
+    
+    def initiate_control_flow(self):
         # starting loop to either login, create account, or quit, sets self.username
         quitflag = self.starting_loop()
         if quitflag:
             sys.exit()
         if self.username is None:
             raise Exception("Username should be set but is not.")
-
-        # start waiting for keyboard input
-        self.start_kb_listening()
 
         # enter main loop to send and receive messages, delete acct, log out, etc.
         self.main_loop()
@@ -297,6 +295,9 @@ class Client:
 
 
     def main_loop(self):
+        # start waiting for keyboard input
+        self.start_kb_listening()
+
         print("Commands: help (h), compose (c), list users (l), get messages (g), delete account (d), logout (q)")
         while True:
             # receive any incoming messages
@@ -311,5 +312,5 @@ class Client:
                 self.start_kb_listening() # start new thread to continue listening for commands
 
 if __name__ == '__main__':
-    #client = Client('localhost', 9000, 64)
-    _ = Client()
+    client = Client()
+    client.initiate_control_flow()
