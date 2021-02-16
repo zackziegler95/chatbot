@@ -100,7 +100,9 @@ TODO
 
 Much of the design ended up being focused around delivering undelivered messages. In general chat applications can take many different forms (e.g. FB Messenger, Slack, text messages, phone conversations), but we wanted to match the specification including a notion of there being "logged in". At first we were thinking about a polling solution in which clients periodically polled the server for any messages, which was elegant because clients can go off or on without the server knowing or caring, but didn't match the specification of a notion of being "logged in."
 
-#### Server
+Finally, early on it was clear that all communication would have to go through the server, instead of clients talking directly with each other. The latter would require much greater complexity and would be much less robust.
+
+### Server
 
 We found that a more natural way that led to a notion of users being logged in or out was to keep sockets open for logged in users. When a socket closes that means the user has logged out. This required us to separately store information about the list of users the server knows about, logged in or not, and the list of currently open connections. To facilite conversation, these had to be linked through the `User.connection` field.
 
@@ -108,13 +110,14 @@ One of the main design choices was how to handle multiple client conenctions. We
 
 These choices fully determined the structure of `Server`, implementing the control flow was just a matter of implementing the logic for each of the commands. Also, given these choices, it was natural for the user object to own the list of undelivered messages, and therefore it made sense that when the user object was deleted because the account was delete these undelivered messages were discarded.
 
-#### Client
+### Client
 
-The main challenge we faced with the client was how to handle both listening for messages from the server and listening for keyboard input, as these are both functions that typically block
+The main challenge we faced with the client was how to handle both listening for messages from the server and listening for keyboard input, as these are both functions that typically block. Specifically, it was really hard to figure out how to print incoming messages to the terminal while expecting user input and composition. After trying out a few ideas we settled on a model where the user types a key followed by enter to send a command to the server. This enters a compose mode where server messages are held in a queue and not printed to the screen until the compose mode is closed.
 
-How to handle both waiting for messages from the server and listening for input from the user of the client.
+The other main design choice was to have both the sender and receiver receive the message sent from the sender. The message includes sender and receiver metadata, so the client can figure out if the message from the server is one it sent or received. Having the sender wait to print the message until it receives it back from the server greatly simplifies the logic, and ensures that all parties agree on the order of messages.
 
-#### Wire Protocol
+
+### Wire Protocol
 
 We wanted to abstract away as much of the detail of the wire protocol as possible from the rest of the application. Given that we were using both blocking and non-blocking sockets, however, we found that the highest level of abstraction we could reach was a class that was responsible for ingesting potentially partial messages and keeping track of how much of an expected message it had parsed. 
 
