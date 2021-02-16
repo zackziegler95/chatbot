@@ -93,3 +93,31 @@ The list items are delimited by a string, currently "|||"
 
 ## Basic Usage
 TODO
+
+## Notebook
+
+### High level design
+
+Much of the design ended up being focused around delivering undelivered messages. In general chat applications can take many different forms (e.g. FB Messenger, Slack, text messages, phone conversations), but we wanted to match the specification including a notion of there being "logged in". At first we were thinking about a polling solution in which clients periodically polled the server for any messages, which was elegant because clients can go off or on without the server knowing or caring, but didn't match the specification of a notion of being "logged in."
+
+#### Server
+
+We found that a more natural way that led to a notion of users being logged in or out was to keep sockets open for logged in users. When a socket closes that means the user has logged out. This required us to separately store information about the list of users the server knows about, logged in or not, and the list of currently open connections. To facilite conversation, these had to be linked through the `User.connection` field.
+
+One of the main design choices was how to handle multiple client conenctions. We decided to go with `select` over multiprocessing because it seemed like `select` did all of the heavy lifting for us, and avoided ugly problems that could arise from multiprocessing. It also naturally fit with out idea of a `Connection` object, as `select` maintains uuids which are associated with `Connection`s. This way, anything that needs to be written can be written to a buffer on the `Connection`, and when the given socket is ready to send it can flush out of that buffer.
+
+These choices fully determined the structure of `Server`, implementing the control flow was just a matter of implementing the logic for each of the commands. Also, given these choices, it was natural for the user object to own the list of undelivered messages, and therefore it made sense that when the user object was deleted because the account was delete these undelivered messages were discarded.
+
+#### Client
+
+The main challenge we faced with the client was how to handle both listening for messages from the server and listening for keyboard input, as these are both functions that typically block
+
+How to handle both waiting for messages from the server and listening for input from the user of the client.
+
+#### Wire Protocol
+
+We wanted to abstract away as much of the detail of the wire protocol as possible from the rest of the application. Given that we were using both blocking and non-blocking sockets, however, we found that the highest level of abstraction we could reach was a class that was responsible for ingesting potentially partial messages and keeping track of how much of an expected message it had parsed. 
+
+It was natural for the `WireProtocol` class to also perform the reverse operation, converting structured data into a byte string, and for it to further parse the data into a list of string arguments.
+
+As far as the design of the protocol itself, it represents what we believe to be the minimum requirements for the application. Unlike a more general protocol like JSON, for the chat application all communication between the client and the server comes in the form of commands. There are only a handful of commands so it made sense to encode the command in a single byte. The message, on the other hand, could potentialy be quite large, so we opted for a variable length representation. Technically this leads to a upper limit on the message size, but given that we have 40 bytes to encode the message length one would have to be sending petabytes over the wire for this to be a problem.
