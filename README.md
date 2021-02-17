@@ -43,7 +43,7 @@ Once you're done, client processes will terminate after receiving `logout` or `d
 ## Testing
 Our testing uses the Python package `pytest`: `test_client.py`, `test_server.py`, and `test_wireprotocol.py` contain unit tests for their respective modules.
 
-Once `pytest` is installed (eg. by calling `pip3 install pytest` inside of the virtual environment), tests are run in the director by calling
+Once `pytest` is installed (eg. by calling `pip3 install pytest` inside of the virtual environment), tests are run in the directory by calling
 ```bash
 pytest test_server.py
 ```
