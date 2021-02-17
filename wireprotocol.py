@@ -47,7 +47,7 @@ class WireProtocol:
     def reset_buffers(self):
         self.version = -1 # -1 will indicate we don't have it yet
         self.command = -1
-        self.data_len = -1 
+        self.data_len = -1
         self.data_buffer = b'' # empty byte string will indicate we don't have it yet
         self.tmp_buffer = b''
 
@@ -122,7 +122,7 @@ class WireProtocol:
             if self.data_buffer:
                 raise ValueError('no data expected for delete account command')
             return None
-         
+
         # login
         if self.command == CMD.LOGIN:
             return self.data_buffer.decode('ascii')
@@ -140,7 +140,7 @@ class WireProtocol:
             return text
 
         raise ValueError('command id %d unknown' % self.command)
-    
+
     @staticmethod
     def data_to_bytes(command, *args):
         # any args passed are eventually concatenated with the CMD.DELIM delimeter

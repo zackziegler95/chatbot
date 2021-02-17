@@ -22,7 +22,7 @@ def listen_for_messages(q, socket, buffer_size):
 
         # if parse_incoming_bytes is True, an entire message has been received
         while wp.parse_incoming_bytes(data):
-            print('received full message, command: %d, args: %s' % (wp.command, str(wp.parse_data())))
+            # print('received full message, command: %d, args: %s' % (wp.command, str(wp.parse_data())))
             q.put([wp.command, wp.parse_data()])
             data = wp.tmp_buffer # Save any leftover bytes
             wp.reset_buffers()
@@ -118,7 +118,7 @@ class Client:
     def get_socket_msg(self):
         cmd, data = self.socketq.get()
         if cmd is None:
-            print('Server closed connection')
+            print('Server closed connection.')
             sys.exit()
         return cmd, data
 
@@ -277,7 +277,7 @@ class Client:
 
     def display_message(self, parsed_message):
         # parsed message of the form [wp.command, wp.parse_data()]
-        print(parsed_message)
+        # print(parsed_message)
         cmd, parsed_data = parsed_message
         if cmd == CMD.SEND:
             sender, recipient, message_body = parsed_data
@@ -289,8 +289,8 @@ class Client:
                 raise ValueError('neither sender nor recipient is the user. Message data is %s' % parsed_data)
         elif cmd == CMD.LISTRESPONSE:
             acct_list = parsed_data
-            print(acct_list)
-            print("Accounts:\n" + "\n".join(acct_list))
+            # print(acct_list)
+            print("Accounts:\n\t" + "\n\t".join(acct_list))
         elif cmd == CMD.RESPONSE:
             error = parsed_data
             print('Server error: %s' % error)
