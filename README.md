@@ -16,11 +16,11 @@ An easy way to manage dependencies is to maintain a virtual environment for all 
 Although it's perhaps overkill, for this purpose we recommend [installing conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/).
 
 Once `conda` is installed, it can be used to create an environment by running
- ```python
+ ```bash
  conda create --name chatenv python=3.7
  ```
  followed by
- ```python
+ ```bash
  conda activate chatenv
  ```
 (to exit simply type `conda deactivate`).
@@ -29,11 +29,11 @@ Once dependencies are in order, the first thing to do is check the configuration
 
 
 To begin chatting, first run
-```python
+```bash
 python3 server.py
 ```
 to start the server (on the server machine), followed by
-```python
+```bash
 python3 client.py
 ```
 to start each client (on each client machine).
@@ -92,7 +92,103 @@ The list items are delimited by a string, currently "|||"
 
 
 ## Basic Usage
-TODO
+The client's interface consists of two main modes: a login mode, in which the user either logs in, creates an account, or exits; and a 'main loop' within which the user receives any incoming messages and has the ability to list users, compose a message, receive stored messages, delete their account, or logout.
+
+As an example, here is a conversation between users Alicia and Bobert. They each log in, write back and forth. Partway through the conversation Bobert logs out, logs in, and checks his messages.
+
+### Alicia's screen:
+```bash
+(chatenv) aliciacomp chatbot % python3 client.py                      
+Commands: login, create_account, quit
+login
+Username: Alicia
+Username not recognized.
+Commands: login, create_account, quit
+create_account
+Username: Alicia
+Logged in as: Alicia
+Commands: help (h), compose (c), list users (l), get messages (g), delete account (d), logout (q)
+l
+Search pattern (optional): *
+Accounts:
+	Bobert
+	Alicia
+c
+Recipient: Bobert
+Message: Salutations, Bobert. Is it snowy where you are?
+Send? (y/n): y
+Sent to Bobert:
+Salutations, Bobert. Is it snowy where you are?
+
+New message from Bobert:
+Hey Alicia, yes it is very snowy. I am worried I may lose power.
+
+c
+Recipient: Bobert
+Message: Don't worry, ERCOT is a very reliable.     
+Send? (y/n): y
+Sent to Bobert:
+Don't worry, ERCOT is a very reliable.
+
+c
+Recipient: Bobert
+Message: Are you still there?
+Send? (y/n): y
+Sent to Bobert:
+Are you still there?
+
+q
+(chatenv) aliciacomp chatbot %
+```
+### Bob's screen:
+```bash
+(chatenv) bobertcomp chatbot % python3 client.py
+Commands: login, create_account, quit
+create_account  
+Username: Bobert
+Logged in as: Bobert
+Commands: help (h), compose (c), list users (l), get messages (g), delete account (d), logout (q)
+New message from Alicia:
+Salutations, Bobert. Is it snowy where you are?
+
+c
+Recipient: Alicia
+Message: Hey Alicia, yes it is very snowy. I am worried I may lose power.    
+Send? (y/n): y
+Sent to Alicia:
+Hey Alicia, yes it is very snowy. I am worried I may lose power.
+
+q
+(chatenv) bobertcomp chatbot % python3 client.py
+Commands: login, create_account, quit
+login
+Username: Bobert
+Logged in as: Bobert
+Commands: help (h), compose (c), list users (l), get messages (g), delete account (d), logout (q)
+g
+New message from Alicia:
+Dont worry, ERCOT is a very reliable.
+
+New message from Alicia:
+Are you still there?
+
+c
+Recipient: Alicia
+Message: Sorry, power went out. Back online now!
+Send? (y/n): y
+Sent to Alicia:
+Sorry, power went out. Back online now!
+
+c
+Recipient: Alicia
+Message: Hello?
+Send? (y/n): y
+Sent to Alicia:
+Hello?
+
+q
+(chatenv) bobertcomp chatbot %
+```
 
 ## Notebook
 
@@ -119,7 +215,7 @@ The other main design choice was to have both the sender and receiver receive th
 
 ### Wire Protocol
 
-We wanted to abstract away as much of the detail of the wire protocol as possible from the rest of the application. Given that we were using both blocking and non-blocking sockets, however, we found that the highest level of abstraction we could reach was a class that was responsible for ingesting potentially partial messages and keeping track of how much of an expected message it had parsed. 
+We wanted to abstract away as much of the detail of the wire protocol as possible from the rest of the application. Given that we were using both blocking and non-blocking sockets, however, we found that the highest level of abstraction we could reach was a class that was responsible for ingesting potentially partial messages and keeping track of how much of an expected message it had parsed.
 
 It was natural for the `WireProtocol` class to also perform the reverse operation, converting structured data into a byte string, and for it to further parse the data into a list of string arguments.
 
