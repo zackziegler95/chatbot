@@ -94,7 +94,7 @@ The list items are delimited by a string, currently "|||"
 ## Basic Usage
 The client's interface consists of two main modes: a login mode, in which the user either logs in, creates an account, or exits; and a 'main loop' within which the user receives any incoming messages and has the ability to list users, compose a message, receive stored messages, delete their account, or logout.
 
-As an example, here is a conversation between users Alicia and Bobert. They each log in, write back and forth. Partway through the conversation Bobert logs out, logs in, and checks his messages.
+As an example, here is a conversation between users Alicia and Bobert. They each log in and write back and forth. Partway through the conversation Bobert logs out, logs in, and checks his messages.
 
 ### Alicia's screen:
 Login loop:
@@ -203,6 +203,7 @@ Hello?
 q
 (chatenv) bobertcomp chatbot %
 ```
+Since Alicia logged out before Bobert logged back in, Bobert's last two messages will be waiting for her when she next logs in.
 
 ## Notebook
 
