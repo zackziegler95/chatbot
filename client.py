@@ -168,7 +168,7 @@ class Client:
             print(f'Logged in as: {self.username}')
             return True
         else:
-            print('Username not recognized.')
+            print(data)
             return False
 
     def attempt_create_acct(self):
