@@ -29,13 +29,33 @@ def listen_for_messages(q, socket, buffer_size):
 
 
 def _username_bad_char_checker(inputstring, alsoallowed=''):
+    # input will always be a string because of
     allowed = 'abcdefghijklmnopqrstuvwxyz0123456789' + alsoallowed
     for c in inputstring:
         if c.lower() not in allowed:
             print(f"Illegal username character: '{c}'")
             return True
+    if inputstring == "":
+        print("Empty string is not a valid username.")
+        return True
+    if CMD.DELIM.decode('ascii') in inputstring:
+        print(f'Illegal character sequence: "{CMD.DELIM}"')
+        return True
+        
     return False
 
+def _message_bad_char_checker(inputstring):
+    # helper function to disallow chars within message
+    disallowed = ['"', '"""', '{', '}']
+    for c in inputstring:
+        if c in disallowed:
+            print("pls no use char: " + c)
+            return True
+    if CMD.DELIM.decode('ascii') in inputstring:
+        print(f'Illegal character sequence: "{CMD.DELIM}"')
+        return True
+
+    return False
 
 class Client:
     def __init__(self, host=config.HOST, port=config.PORT, buffer_size=config.CLIENTBUFFERSIZE):
@@ -54,7 +74,9 @@ class Client:
         self.socketprocess = mp.Process(target=listen_for_messages, args=[self.socketq, self.socket, buffer_size])
         self.socketprocess.daemon = True
         self.socketprocess.start()
-    
+
+        self.initiate_control_flow()
+
     def initiate_control_flow(self):
         # starting loop to either login, create account, or quit, sets self.username
         quitflag = self.starting_loop()
@@ -65,7 +87,6 @@ class Client:
 
         # enter main loop to send and receive messages, delete acct, log out, etc.
         self.main_loop()
-
 
     def start_kb_listening(self):
         # starts a thread which listens for a keyboard interaction
@@ -184,10 +205,10 @@ class Client:
     def list_accounts(self):
         # loop to elicit valid wildcard string
         search_string = input("Search pattern (optional): ")
-        while _username_bad_char_checker(search_string, '*?[]!'):
-            search_string = input("Search string: ")
         if search_string == '':
             search_string = '*'
+        while _username_bad_char_checker(search_string, '*?[]!'):
+            search_string = input("Search string: ")
         # client sends username search to Server
         self.send_to_server(CMD.LIST, search_string)
         # listen_for_messages will handle receiving and printing of returned user list
@@ -218,20 +239,6 @@ class Client:
             print("(invalid command)")
 
     def enter_compose_mode(self):
-        # helper function to disallow chars within message
-        def _message_bad_char_checker(inputstring):
-            disallowed = ['"', '"""', '{', '}']
-            for c in inputstring:
-                if c in disallowed:
-                    print("pls no use char: " + c)
-                    return True
-
-            if CMD.DELIM.decode('ascii') in inputstring:
-                print(f'Illegal character sequence: "{CMD.DELIM}"')
-                return True
-
-            return False
-
         # prompt for recipient
         recipient = input("Recipient: ")
         # prompt for message
@@ -312,5 +319,7 @@ class Client:
                 self.start_kb_listening() # start new thread to continue listening for commands
 
 if __name__ == '__main__':
-    client = Client()
-    client.initiate_control_flow()
+    try:
+        client = Client()
+    except ConnectionRefusedError:
+        print('Unable to connect to server.')
