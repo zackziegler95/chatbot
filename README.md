@@ -40,6 +40,18 @@ to start each client (on each client machine).
 
 Once you're done, client processes will terminate after receiving `logout` or `delete account` commands. The server process will run until it is terminated manually.
 
+## Testing
+Our testing uses the Python package `pytest`: `test_client.py`, `test_server.py`, and `test_wireprotocol.py` contain unit tests for their respective modules.
+
+Once `pytest` is installed (eg. by calling `pip3 install pytest` inside of the virtual environment), tests are run in the director by calling
+```bash
+pytest test_server.py
+```
+or even
+```bash
+pytest
+```
+
 ## Wire Protocol
 
 The wire protocol is made up of two components: the actual protocol for the distribution of bits over the wire and the protocol for understanding the format of the data.
@@ -209,23 +221,23 @@ Since Alicia logged out before Bobert logged back in, Bobert's last two messages
 
 ### High level design
 
-Much of the design ended up being focused around delivering undelivered messages. In general chat applications can take many different forms (e.g. FB Messenger, Slack, text messages, phone conversations), but we wanted to match the specification including a notion of there being "logged in". At first we were thinking about a polling solution in which clients periodically polled the server for any messages, which was elegant because clients can go off or on without the server knowing or caring, but didn't match the specification of a notion of being "logged in."
+Much of the design ended up being focused around delivering undelivered messages. In general chat applications can take many different forms (e.g. FB Messenger, Slack, text messages, phone conversations), but we wanted to match the specification that there exist a state of being "logged in". At first we were thinking about a polling solution in which clients periodically polled the server for any inbound messages, which was elegant because clients can go off or on without the server knowing or caring. Unfortunately this doesn't match the specification of a notion of being "logged in."
 
 Finally, early on it was clear that all communication would have to go through the server, instead of clients talking directly with each other. The latter would require much greater complexity and would be much less robust.
 
 ### Server
 
-We found that a more natural way that led to a notion of users being logged in or out was to keep sockets open for logged in users. When a socket closes that means the user has logged out. This required us to separately store information about the list of users the server knows about, logged in or not, and the list of currently open connections. To facilite conversation, these had to be linked through the `User.connection` field.
+We found that a more natural way that led to a notion of users being logged in or out was to keep sockets open for logged in users. When a socket closes that means the user has logged out. This required us to separately store information about the list of users the server knows about, logged in or not, and the list of currently open connections. To facilitate conversation, these had to be linked through the `User.connection` field.
 
-One of the main design choices was how to handle multiple client conenctions. We decided to go with `select` over multiprocessing because it seemed like `select` did all of the heavy lifting for us, and avoided ugly problems that could arise from multiprocessing. It also naturally fit with out idea of a `Connection` object, as `select` maintains uuids which are associated with `Connection`s. This way, anything that needs to be written can be written to a buffer on the `Connection`, and when the given socket is ready to send it can flush out of that buffer.
+One of the main design choices was how to handle multiple client connections. We decided to go with `select` over multiprocessing because it seemed like `select` did all of the heavy lifting for us, and avoided ugly problems that could arise from multiprocessing. It also naturally fit with out idea of a `Connection` object, as `select` maintains uuids which are associated with `Connection`s. This way, anything that needs to be written can be written to a buffer on the `Connection`, and when the given socket is ready to send it can flush out of that buffer.
 
-These choices fully determined the structure of `Server`, implementing the control flow was just a matter of implementing the logic for each of the commands. Also, given these choices, it was natural for the user object to own the list of undelivered messages, and therefore it made sense that when the user object was deleted because the account was delete these undelivered messages were discarded.
+These choices fully determined the structure of `Server`, implementing the control flow was just a matter of implementing the logic for each of the commands. Also, given these choices, it was natural for the user object to own the list of undelivered messages, and therefore it made sense that when the user object was deleted because the account was deleted these undelivered messages were discarded also.
 
 ### Client
 
-The main challenge we faced with the client was how to handle both listening for messages from the server and listening for keyboard input, as these are both functions that typically block. Specifically, it was really hard to figure out how to print incoming messages to the terminal while expecting user input and composition. After trying out a few ideas we settled on a model where the user types a key followed by enter to send a command to the server. This enters a compose mode where server messages are held in a queue and not printed to the screen until the compose mode is closed.
+The main challenge we faced with the client was how to handle both listening for messages from the server and listening for keyboard input from the user, as these are both functions that typically block. Specifically, it was really hard to figure out how to print incoming messages to the terminal while expecting user input and composition. After trying out a few ideas we settled on a model where the user types a key followed by enter to specify a command to the client, for instance to compose a message. This puts the client in a blocking compose mode, during which incoming messages from the server are held in a queue and printed only once the compose mode is closed.
 
-The other main design choice was to have both the sender and receiver receive the message sent from the sender. The message includes sender and receiver metadata, so the client can figure out if the message from the server is one it sent or received. Having the sender wait to print the message until it receives it back from the server greatly simplifies the logic, and ensures that all parties agree on the order of messages.
+The other main design choice was to have both the sender and receiver receive the message sent from the sender. The message includes sender and receiver metadata, so the client can figure out if the message from the server is one which it sent or is receiving. Having the sender wait to print the message until it receives it back from the server greatly simplifies the logic, and ensures that all parties agree on the order of messages.
 
 
 ### Wire Protocol
@@ -234,4 +246,4 @@ We wanted to abstract away as much of the detail of the wire protocol as possibl
 
 It was natural for the `WireProtocol` class to also perform the reverse operation, converting structured data into a byte string, and for it to further parse the data into a list of string arguments.
 
-As far as the design of the protocol itself, it represents what we believe to be the minimum requirements for the application. Unlike a more general protocol like JSON, for the chat application all communication between the client and the server comes in the form of commands. There are only a handful of commands so it made sense to encode the command in a single byte. The message, on the other hand, could potentialy be quite large, so we opted for a variable length representation. Technically this leads to a upper limit on the message size, but given that we have 40 bytes to encode the message length one would have to be sending petabytes over the wire for this to be a problem.
+As far as the design of the protocol itself, it represents what we believe to be the minimum requirements for the application. Unlike a more general protocol like JSON, for the chat application all communication between the client and the server comes in the form of commands. There are only a handful of commands, so it made sense to encode the command in a single byte. The message, on the other hand, could potentially be quite large, so we opted for a variable length representation. We technically require an unenforced upper limit on the message size, but given that 40 bytes are allocated for encoding the message length, one would have to be sending petabytes over the wire to reach this limit.

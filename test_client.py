@@ -5,8 +5,8 @@ from wireprotocol import CMD
 from client import Client
 
 # Note: even the constructor for Client cannot be tested in isolation
-# since its behavior is dependent on what kind of server is listening on
-# the specified port.
+# since its behavior is dependent on whether or what kind of server is listening
+# on the specified port.
 # Even if a Client object is successfully initialized, its behavior in other
 # methods is determined by a combination keyboard input and behavior of the
 # server to which it is connected; therefore its control flow cannot be tested
@@ -31,10 +31,3 @@ def test_message_bad_char_checker():
     for message in bad_messages:
         res = client._message_bad_char_checker(message)
         assert res
-
-def test_client_init():
-    # tests for correct response if nothing is listening on address below
-    CLIENTBUFFERSIZE = 64
-    HOST = "127.0.0.1"
-    PORT = 9000
-    pytest.raises(ConnectionRefusedError, Client, host=HOST, port=PORT, buffer_size=CLIENTBUFFERSIZE)
