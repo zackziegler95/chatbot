@@ -97,6 +97,7 @@ The client's interface consists of two main modes: a login mode, in which the us
 As an example, here is a conversation between users Alicia and Bobert. They each log in, write back and forth. Partway through the conversation Bobert logs out, logs in, and checks his messages.
 
 ### Alicia's screen:
+Login loop:
 ```bash
 (chatenv) aliciacomp chatbot % python3 client.py                      
 Commands: login, create_account, quit
@@ -107,6 +108,9 @@ Commands: login, create_account, quit
 create_account
 Username: Alicia
 Logged in as: Alicia
+```
+Main loop:
+```bash
 Commands: help (h), compose (c), list users (l), get messages (g), delete account (d), logout (q)
 l
 Search pattern (optional): *
@@ -125,10 +129,10 @@ Hey Alicia, yes it is very snowy. I am worried I may lose power.
 
 c
 Recipient: Bobert
-Message: Don't worry, ERCOT is a very reliable.     
+Message: Dont worry, ERCOT is a very reliable.     
 Send? (y/n): y
 Sent to Bobert:
-Don't worry, ERCOT is a very reliable.
+Dont worry, ERCOT is a very reliable.
 
 c
 Recipient: Bobert
@@ -141,12 +145,16 @@ q
 (chatenv) aliciacomp chatbot %
 ```
 ### Bob's screen:
+Startup and account creation:
 ```bash
 (chatenv) bobertcomp chatbot % python3 client.py
 Commands: login, create_account, quit
 create_account  
 Username: Bobert
 Logged in as: Bobert
+```
+Main loop:
+```bash
 Commands: help (h), compose (c), list users (l), get messages (g), delete account (d), logout (q)
 New message from Alicia:
 Salutations, Bobert. Is it snowy where you are?
@@ -159,11 +167,17 @@ Sent to Alicia:
 Hey Alicia, yes it is very snowy. I am worried I may lose power.
 
 q
+```
+Restart and login:
+```bash
 (chatenv) bobertcomp chatbot % python3 client.py
 Commands: login, create_account, quit
 login
 Username: Bobert
 Logged in as: Bobert
+```
+Main loop:
+```bash
 Commands: help (h), compose (c), list users (l), get messages (g), delete account (d), logout (q)
 g
 New message from Alicia:
